@@ -1,3 +1,3 @@
 pub mod expr;
-pub mod hash;
+pub mod closure;
 pub mod parse;
