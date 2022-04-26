@@ -51,5 +51,5 @@ pub fn score_hasher<H: Hash>(
         }
     }
 
-    score / clusters as f64 / cluster_size as f64 / (len as f64 + 2f64).log2() as f64
+    score / clusters as f64 / cluster_size as f64 / (len as f64).sqrt()
 }
