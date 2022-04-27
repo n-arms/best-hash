@@ -1,10 +1,10 @@
-use crate::hash::Hash;
 use super::expr::Expr;
+use crate::hash::Hash;
 use std::rc::Rc;
 
 #[derive(Clone)]
 pub struct Hasher<'a> {
-    closure: Rc<dyn Fn(u64, u8) -> u64 + 'a>
+    closure: Rc<dyn Fn(u64, u8) -> u64 + 'a>,
 }
 impl<'a> From<&'a Expr> for Hasher<'a> {
     fn from(expr: &'a Expr) -> Self {
@@ -14,47 +14,51 @@ impl<'a> From<&'a Expr> for Hasher<'a> {
                 let bc = Hasher::from(b.as_ref());
 
                 Hasher {
-                    closure: Rc::new(move |hash_state, byte| (ac.closure)(hash_state, byte).wrapping_add((bc.closure)(hash_state, byte)))
+                    closure: Rc::new(move |hash_state, byte| {
+                        (ac.closure)(hash_state, byte).wrapping_add((bc.closure)(hash_state, byte))
+                    }),
                 }
-            },
+            }
             Expr::Xor(a, b) => {
                 let ac = Hasher::from(a.as_ref());
                 let bc = Hasher::from(b.as_ref());
 
                 Hasher {
-                    closure: Rc::new(move |hash_state, byte| (ac.closure)(hash_state, byte) ^ (bc.closure)(hash_state, byte))
+                    closure: Rc::new(move |hash_state, byte| {
+                        (ac.closure)(hash_state, byte) ^ (bc.closure)(hash_state, byte)
+                    }),
                 }
-            },
+            }
             Expr::RotLeft(a, b) => {
                 let ac = Hasher::from(a.as_ref());
                 let bc = Hasher::from(b.as_ref());
 
                 Hasher {
-                    closure: Rc::new(move |hash_state, byte| (ac.closure)(hash_state, byte).rotate_left((bc.closure)(hash_state, byte) as u32))
+                    closure: Rc::new(move |hash_state, byte| {
+                        (ac.closure)(hash_state, byte)
+                            .rotate_left((bc.closure)(hash_state, byte) as u32)
+                    }),
                 }
-            },
+            }
             Expr::RotRight(a, b) => {
                 let ac = Hasher::from(a.as_ref());
                 let bc = Hasher::from(b.as_ref());
 
                 Hasher {
-                    closure: Rc::new(move |hash_state, byte| (ac.closure)(hash_state, byte).rotate_right((bc.closure)(hash_state, byte) as u32))
-                }
-            },
-            Expr::Const(num) => {
-                Hasher {
-                    closure: Rc::new(|_, _| *num)
+                    closure: Rc::new(move |hash_state, byte| {
+                        (ac.closure)(hash_state, byte)
+                            .rotate_right((bc.closure)(hash_state, byte) as u32)
+                    }),
                 }
             }
-            Expr::HashState => {
-                Hasher {
-                    closure: Rc::new(|state, _| state)
-                }
+            Expr::Const(num) => Hasher {
+                closure: Rc::new(|_, _| *num),
             },
-            Expr::Byte => {
-                Hasher {
-                    closure: Rc::new(|_, byte| byte as u64)
-                }
+            Expr::HashState => Hasher {
+                closure: Rc::new(|state, _| state),
+            },
+            Expr::Byte => Hasher {
+                closure: Rc::new(|_, byte| byte as u64),
             },
         }
     }
@@ -93,14 +97,14 @@ mod test {
 
                 if expr.hash_bytes(INIT, &bytes) != closure.hash_bytes(INIT, &bytes) {
                     failed.push(expr.clone());
-                    continue 'exprs
+                    continue 'exprs;
                 }
             }
         }
 
         if !failed.is_empty() {
             failed.sort_by_key(Expr::len);
-    
+
             let smallest = failed[0].clone();
 
             failed.reverse();

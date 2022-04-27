@@ -1,17 +1,15 @@
 macro_rules! count_ones {
-    ($bytes:expr) => {
-        {
-            let mut bytes = $bytes;
-            let mut count = 0;
+    ($bytes:expr) => {{
+        let mut bytes = $bytes;
+        let mut count = 0;
 
-            while bytes > 0 {
-                count += 1;
-                bytes &= bytes - 1;
-            }
-
-            count
+        while bytes > 0 {
+            count += 1;
+            bytes &= bytes - 1;
         }
-    }
+
+        count
+    }};
 }
 
 use rand::prelude::*;
@@ -21,11 +19,11 @@ pub trait Hash {
 }
 
 pub fn score_hasher<H: Hash>(
-    hasher: H, 
+    hasher: H,
     len: usize,
     init: u64,
-    clusters: usize, 
-    cluster_size: usize, 
+    clusters: usize,
+    cluster_size: usize,
     bytes_len: usize,
     mutations: usize,
     rng: &mut ThreadRng,

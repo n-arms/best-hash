@@ -1,6 +1,7 @@
-use std::result;
 use super::expr::Expr;
+use std::result;
 
+#[derive(Debug)]
 pub enum Error {
     UnexpectedEOF,
     ExpectedAsciiDigit(u8),
@@ -8,7 +9,7 @@ pub enum Error {
     ExpectedOpenParen(u8),
     ExpectedCloseParen(u8),
     ExpectedBytesOrState(u8),
-    ExpectedEof(Vec<u8>)
+    ExpectedEof(Vec<u8>),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -29,7 +30,7 @@ pub fn parse(text: &str) -> Result<Expr> {
     }
 }
 
-fn parse_expr(text: &[u8]) -> Result<(&[u8], Expr)>  {
+fn parse_expr(text: &[u8]) -> Result<(&[u8], Expr)> {
     parse_binary_operator(text)
         .or_else(|_| parse_const(text))
         .or_else(|_| parse_ref(text))
@@ -40,7 +41,7 @@ fn parse_ref(text: &[u8]) -> Result<(&[u8], Expr)> {
     match text {
         [b'b', b'y', b't', b'e', text @ ..] => Ok((text, Expr::Byte)),
         [b's', b't', b'a', b't', b'e', text @ ..] => Ok((text, Expr::HashState)),
-        _ => Err(Error::ExpectedBytesOrState(text[0]))
+        _ => Err(Error::ExpectedBytesOrState(text[0])),
     }
 }
 
@@ -78,7 +79,7 @@ fn parse_binary_operator(mut text: &[u8]) -> Result<(&[u8], Expr)> {
         [b'>', b'>', text @ ..] => (text, (Expr::RotRight) as Operator),
         [b'<', b'<', text @ ..] => (text, (Expr::RotLeft) as Operator),
         [c, ..] => return Err(Error::ExpectedOperator(*c)),
-        [] => return Err(Error::UnexpectedEOF)
+        [] => return Err(Error::UnexpectedEOF),
     };
 
     let (text, right) = parse_expr(text)?;
