@@ -16,23 +16,29 @@ fn emit_expr(expr: &Expr, mem_idx: &[usize]) -> Program {
         Expr::Xor(a, b) => (Instruction::Xor as BinInstruction, a, b),
         Expr::RotLeft(a, b) => (Instruction::RotLeft as BinInstruction, a, b),
         Expr::RotRight(a, b) => (Instruction::RotRight as BinInstruction, a, b),
-        Expr::Const(num) => return Program {
-            instructions: Vec::new(),
-            result: Value::Immediate(*num)
-        },
-        Expr::HashState => return Program {
-            instructions: Vec::new(),
-            result: Value::Reference(0)
-        },
-        Expr::Byte => return Program {
-            instructions: Vec::new(),
-            result: Value::Reference(1)
-        },
+        Expr::Const(num) => {
+            return Program {
+                instructions: Vec::new(),
+                result: Value::Immediate(*num),
+            }
+        }
+        Expr::HashState => {
+            return Program {
+                instructions: Vec::new(),
+                result: Value::Reference(0),
+            }
+        }
+        Expr::Byte => {
+            return Program {
+                instructions: Vec::new(),
+                result: Value::Reference(1),
+            }
+        }
     };
 
     let Program {
         mut instructions,
-        result: a_res
+        result: a_res,
     } = emit_expr(&a, &mem_idx[1..]);
 
     instructions.push(Instruction::Move(mem_idx[0], a_res));
@@ -48,7 +54,7 @@ fn emit_expr(expr: &Expr, mem_idx: &[usize]) -> Program {
 
     Program {
         instructions,
-        result: Value::Reference(mem_idx[0])
+        result: Value::Reference(mem_idx[0]),
     }
 }
 

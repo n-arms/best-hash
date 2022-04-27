@@ -1,5 +1,5 @@
-use std::fmt;
 use crate::hash::Hash;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Program {
@@ -34,20 +34,32 @@ impl Program {
             match instr {
                 Instruction::Move(dst, Value::Immediate(val)) => mem[*dst] = *val,
                 Instruction::Move(dst, Value::Reference(src)) => mem[*dst] = mem[*src],
-                Instruction::Add(dst, Value::Immediate(val)) => mem[*dst] = mem[*dst].wrapping_add(*val),
-                Instruction::Add(dst, Value::Reference(src)) => mem[*dst] = mem[*dst].wrapping_add(mem[*src]),
+                Instruction::Add(dst, Value::Immediate(val)) => {
+                    mem[*dst] = mem[*dst].wrapping_add(*val)
+                }
+                Instruction::Add(dst, Value::Reference(src)) => {
+                    mem[*dst] = mem[*dst].wrapping_add(mem[*src])
+                }
                 Instruction::Xor(dst, Value::Immediate(val)) => mem[*dst] ^= *val,
                 Instruction::Xor(dst, Value::Reference(src)) => mem[*dst] ^= mem[*src],
-                Instruction::RotLeft(dst, Value::Immediate(val)) => mem[*dst] = mem[*dst].rotate_left(*val as u32),
-                Instruction::RotLeft(dst, Value::Reference(src)) => mem[*dst] = mem[*dst].rotate_left(mem[*src] as u32),
-                Instruction::RotRight(dst, Value::Immediate(val)) => mem[*dst] = mem[*dst].rotate_right(*val as u32),
-                Instruction::RotRight(dst, Value::Reference(src)) => mem[*dst] = mem[*dst].rotate_right(mem[*src] as u32),
+                Instruction::RotLeft(dst, Value::Immediate(val)) => {
+                    mem[*dst] = mem[*dst].rotate_left(*val as u32)
+                }
+                Instruction::RotLeft(dst, Value::Reference(src)) => {
+                    mem[*dst] = mem[*dst].rotate_left(mem[*src] as u32)
+                }
+                Instruction::RotRight(dst, Value::Immediate(val)) => {
+                    mem[*dst] = mem[*dst].rotate_right(*val as u32)
+                }
+                Instruction::RotRight(dst, Value::Reference(src)) => {
+                    mem[*dst] = mem[*dst].rotate_right(mem[*src] as u32)
+                }
             }
         }
 
         match self.result {
             Value::Immediate(val) => val,
-            Value::Reference(idx) => mem[idx]
+            Value::Reference(idx) => mem[idx],
         }
     }
 
@@ -57,11 +69,11 @@ impl Program {
 
         for instr in &self.instructions {
             match instr {
-                Instruction::Move(dst, _) |
-                Instruction::Add(dst, _) |
-                Instruction::Xor(dst, _) |
-                Instruction::RotLeft(dst, _) |
-                Instruction::RotRight(dst, _) => biggest = biggest.max(*dst)
+                Instruction::Move(dst, _)
+                | Instruction::Add(dst, _)
+                | Instruction::Xor(dst, _)
+                | Instruction::RotLeft(dst, _)
+                | Instruction::RotRight(dst, _) => biggest = biggest.max(*dst),
             }
         }
 
@@ -113,9 +125,9 @@ impl fmt::Display for Program {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::bytecode::gen::emit;
     use crate::expr::expr::Expr;
     use rand::prelude::*;
-    use crate::bytecode::gen::emit;
 
     const INIT: u64 = 0;
 

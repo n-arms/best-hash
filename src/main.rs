@@ -1,10 +1,11 @@
 mod bytecode;
 mod expr;
 mod hash;
+mod jit;
 
-use expr::parse::parse;
-use expr::expr::Expr;
 use bytecode::gen::emit;
+use expr::expr::Expr;
+use expr::parse::parse;
 use rand::prelude::*;
 
 fn main() {
