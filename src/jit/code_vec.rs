@@ -3,6 +3,7 @@ use libc::{
     PROT_WRITE,
 };
 use std::ptr;
+use std::fs::write;
 
 pub struct CodeVec {
     buffer: *mut u8,
@@ -72,7 +73,10 @@ impl CodeVec {
 impl Drop for CodeVec {
     fn drop(&mut self) {
         unsafe {
-            munmap(self.buffer as *mut c_void, self.capacity);
+            let buf = self.buffer as *const c_void;
+            if buf != ptr::null() {
+                munmap(buf as *mut c_void, self.capacity);
+            }
         }
     }
 }

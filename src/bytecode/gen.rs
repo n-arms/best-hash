@@ -11,15 +11,15 @@ pub fn emit(expr: &Expr, registers: usize) -> Program {
     } = emit_expr(expr, &mem_idx);
 
     match result {
-        Value::Reference(3) => Program {
+        Value::Reference(2) => Program {
             instructions,
             result,
         },
         val => {
-            instructions.push(Instruction::Move(3, val));
+            instructions.push(Instruction::Move(2, val));
             Program {
                 instructions,
-                result: Value::Reference(3),
+                result: Value::Reference(2),
             }
         }
     }
@@ -106,7 +106,7 @@ fn register_allocate(expr: &Expr, registers: usize) -> Vec<usize> {
         .collect();
 
     let mut memory_idx = levels; // reuse the memory from levels
-    let mut reg_offset = 3; // the first three registers / memory slots are reserved for the hash state, the byte being hashed and the trash register for rotations
+    let mut reg_offset = 4; // the first three registers / memory slots are reserved for the hash state, the byte being hashed, the trash register for memory loading and the trash register for rotations
     let mut mem_offset = reg_offset + registers;
 
     for i in 0..memory_idx.len() {

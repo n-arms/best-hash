@@ -7,20 +7,21 @@ pub struct Linux_x86_64 {
     pub buffer: CodeVec,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Memory {
     Register(Register),
     Stack(usize),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Register {
     /// argument 2
     RDI,
     /// argument 1 
     RSI,
-    /// has to be used for rotations
+    /// has to be used for memory loads and stores
     RAX,
+    /// has to be used for rotations
     RCX, 
     RDX,
     R8,
@@ -50,21 +51,21 @@ impl From<usize> for Memory {
         let register = match num {
             0 => Register::RDI,
             1 => Register::RSI,
-            2 => Register::RCX,
-            3 => Register::RAX,
+            2 => Register::RAX,
+            3 => Register::RCX,
             4 => Register::RDX,
             5 => Register::R8,
             6 => Register::R9,
             7 => Register::R10,
             8 => Register::R11,
-            _ => return Memory::Stack(num - 9),
+            _ => return Memory::Stack(num - 8),
         };
         Memory::Register(register)
     }
 }
 
-impl Linux_x86_64 {
-    pub fn new() -> Linux_x86_64 {
+impl Default for Linux_x86_64 {
+    fn default() -> Linux_x86_64 {
         let mut buffer = CodeVec::new(_SC_PAGESIZE as usize);
         buffer.push(0xf3);
         buffer.push(0x0f);
@@ -94,13 +95,23 @@ impl Assembler for Linux_x86_64 {
             // 74 = 01 110 100
             // 4c =
             (Memory::Register(dst_reg), Memory::Stack(src_idx)) => {
-                self.buffer.push(0x48 + (dst_reg.emit() >> 3));
+                self.buffer.push(0x48 + ((dst_reg.emit() >> 3) << 2));
                 self.buffer.push(0x8b);
                 self.buffer.push(0b01_000_100 + ((dst_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
-                self.buffer.push((src_idx % 256) as u8);
+                self.buffer.push(((src_idx * 8) % 256) as u8);
             }
-            _ => todo!(),
+            (Memory::Stack(dst_idx), Memory::Register(src_reg)) => {
+                self.buffer.push(0x48 + ((src_reg.emit() >> 3) << 2));
+                self.buffer.push(0x89);
+                self.buffer.push(0b01_000_100 + ((src_reg.emit() % 8) << 3));
+                self.buffer.push(0x24);
+                self.buffer.push((dst_idx * 8) as u8);
+            }
+            (Memory::Stack(dst_idx), Memory::Stack(src_idx)) => {
+                self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(src_idx));
+                self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
+            }
         }
     }
 
@@ -114,7 +125,8 @@ impl Assembler for Linux_x86_64 {
                 }
             }
             Memory::Stack(dst_idx) => {
-                todo!()
+                self.mov_imm(Memory::Register(Register::RAX), src);
+                self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
             }
         }
     }
@@ -134,7 +146,25 @@ impl Assembler for Linux_x86_64 {
                 self.buffer
                     .push(0b11_000_000 + ((src_reg.emit() % 8) << 3) + (dst_reg.emit() % 8));
             }
-            _ => todo!(),
+            (Memory::Stack(dst_idx), Memory::Register(src_reg)) => {
+                self.buffer.push(0x48 + ((src_reg.emit() >> 3) << 2));
+                self.buffer.push(0x01);
+                self.buffer.push(0b01_000_100 + ((src_reg.emit() % 8) << 3));
+                self.buffer.push(0x24);
+                self.buffer.push((dst_idx * 8) as u8);
+            },
+            (Memory::Register(dst_reg), Memory::Stack(src_idx)) => {
+                self.buffer.push(0x48 + ((dst_reg.emit() >> 3) << 2));
+                self.buffer.push(0x03);
+                self.buffer.push(0b01_000_100 + ((dst_reg.emit() % 8) << 3));
+                self.buffer.push(0x24);
+                self.buffer.push((src_idx * 8) as u8);
+            }
+            (Memory::Stack(dst_idx), Memory::Stack(src_idx)) => {
+                self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
+                self.add_mem(Memory::Register(Register::RAX), Memory::Stack(src_idx));
+                self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
+            }
         }
     }
     /*
@@ -154,7 +184,17 @@ impl Assembler for Linux_x86_64 {
                     self.buffer.push(byte);
                 }
             }
-            Memory::Stack(dst_idx) => todo!(),
+            Memory::Stack(dst_idx) => {
+                self.buffer.push(0x48);
+                self.buffer.push(0x81);
+                self.buffer.push(0x44);
+                self.buffer.push(0x24);
+                self.buffer.push((dst_idx * 8) as u8);
+
+                for byte in src.to_le_bytes() {
+                    self.buffer.push(byte);
+                }
+            },
         }
     }
 
@@ -167,7 +207,25 @@ impl Assembler for Linux_x86_64 {
                 self.buffer
                     .push(0b11_000_000 + ((src_reg.emit() % 8) << 3) + (dst_reg.emit() % 8));
             }
-            _ => todo!(),
+            (Memory::Stack(dst_idx), Memory::Register(src_reg)) => {
+                self.buffer.push(0x48 + ((src_reg.emit() >> 3) << 2));
+                self.buffer.push(0x31);
+                self.buffer.push(0b01_000_100 + ((src_reg.emit() % 8) << 3));
+                self.buffer.push(0x24);
+                self.buffer.push((dst_idx * 8) as u8);
+            }
+            (Memory::Register(dst_reg), Memory::Stack(src_idx)) => {
+                self.buffer.push(0x48 + ((dst_reg.emit() >> 3) << 2));
+                self.buffer.push(0x33);
+                self.buffer.push(0b01_000_100 + ((dst_reg.emit() % 8) << 3));
+                self.buffer.push(0x24);
+                self.buffer.push((src_idx * 8) as u8);
+            }
+            (Memory::Stack(dst_idx), Memory::Stack(src_idx)) => {
+                self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
+                self.xor_mem(Memory::Register(Register::RAX), Memory::Stack(src_idx));
+                self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
+            }
         }
     }
     /*
@@ -188,25 +246,37 @@ impl Assembler for Linux_x86_64 {
                     self.buffer.push(byte);
                 }
             }
-            Memory::Stack(dst_idx) => todo!(),
+            Memory::Stack(dst_idx) => {
+                self.buffer.push(0x48);
+                self.buffer.push(0x81);
+                self.buffer.push(0x74);
+                self.buffer.push(0x24);
+                self.buffer.push((dst_idx * 8) as u8);
+                
+                for byte in src.to_le_bytes() {
+                    self.buffer.push(byte);
+                }
+            }
         }
     }
 
     // note: all the rotation instructions will trash the RCX register
     fn rotl_mem(&mut self, dst: Self::Memory, src: Self::Memory) {
         match (dst, src) {
-            (Memory::Register(dst_reg), Memory::Register(src_reg)) => {
-                self.mov_mem(Memory::Register(Register::RCX), Memory::Register(src_reg));
+            (Memory::Register(dst_reg), _) => {
+                if src != Memory::Register(Register::RCX) {
+                    self.mov_mem(Memory::Register(Register::RCX), src);
+                }
                 self.buffer
-                    .push(0x48 + (dst_reg.emit() >> 3) + ((src_reg.emit() >> 3) << 2));
+                    .push(0x48 + (dst_reg.emit() >> 3));
                 self.buffer.push(0xd3);
                 self.buffer.push(0b11_000_000 + (dst_reg.emit() % 8));
-                // 12 
-                // 11 000 000 = rax
-                // 11 000 010 = rdx
-
             }
-            _  => todo!()
+            _  => {
+                self.mov_mem(Memory::Register(Register::RAX), dst);
+                self.rotl_mem(Memory::Register(Register::RAX), src);
+                self.mov_mem(dst, Memory::Register(Register::RAX));
+            }
         }
     }
 
@@ -215,23 +285,32 @@ impl Assembler for Linux_x86_64 {
             Memory::Register(dst_reg) => {
                 self.buffer.push(0x48 + (dst_reg.emit() >> 3));
                 self.buffer.push(0xc1);
-                self.buffer.push(0b11_001_000 + (dst_reg.emit() % 8));
+                self.buffer.push(0b11_000_000 + (dst_reg.emit() % 8));
                 self.buffer.push((src % u8::MAX as u32) as u8);
             },
-            Memory::Stack(_) => todo!(),
+            Memory::Stack(dst_idx) => {
+                self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
+                self.rotl_imm(Memory::Register(Register::RAX), src);
+                self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
+            }
         }
     }
 
     fn rotr_mem(&mut self, dst: Self::Memory, src: Self::Memory) {
         match (dst, src) {
-            (Memory::Register(dst_reg), Memory::Register(src_reg)) => {
-                self.mov_mem(Memory::Register(Register::RCX), Memory::Register(src_reg));
-                self.buffer
-                    .push(0x48 + (dst_reg.emit() >> 3) + ((src_reg.emit() >> 3) << 2));
+            (Memory::Register(dst_reg), _) => {
+                if src != Memory::Register(Register::RCX) {
+                    self.mov_mem(Memory::Register(Register::RCX), src);
+                }
+                self.buffer.push(0x48 + (dst_reg.emit() >> 3));
                 self.buffer.push(0xd3);
                 self.buffer.push(0b11_001_000 + (dst_reg.emit() % 8));
             }
-            _  => todo!()
+            _  => {
+                self.mov_mem(Memory::Register(Register::RAX), dst);
+                self.rotl_mem(Memory::Register(Register::RAX), src);
+                self.mov_mem(dst, Memory::Register(Register::RAX));
+            }
         }
     }
 
@@ -240,10 +319,14 @@ impl Assembler for Linux_x86_64 {
             Memory::Register(dst_reg) => {
                 self.buffer.push(0x48 + (dst_reg.emit() >> 3));
                 self.buffer.push(0xc1);
-                self.buffer.push(0b11_000_000 + (dst_reg.emit() % 8));
+                self.buffer.push(0b11_001_000 + (dst_reg.emit() % 8));
                 self.buffer.push((src % u8::MAX as u32) as u8);
             },
-            Memory::Stack(_) => todo!(),
+            Memory::Stack(dst_idx) => {
+                self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
+                self.rotl_imm(Memory::Register(Register::RAX), src);
+                self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
+            },
         }
     }
 
