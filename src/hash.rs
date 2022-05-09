@@ -18,6 +18,18 @@ pub trait Hash {
     fn hash_bytes(&self, init: u64, bytes: &[u8]) -> u64;
 }
 
+impl Hash for fn(u64, u64) -> u64 {
+    fn hash_bytes(&self, init: u64, bytes: &[u8]) -> u64 {
+        let mut hash = init;
+
+        for byte in bytes {
+            hash = (self)(hash, *byte as u64);
+        }
+
+        hash
+    }
+}
+
 pub fn score_hasher<H: Hash>(
     hasher: H,
     len: usize,
