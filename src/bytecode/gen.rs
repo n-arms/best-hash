@@ -5,7 +5,24 @@ use std::collections::HashSet;
 pub fn emit(expr: &Expr, registers: usize) -> Program {
     let mem_idx = register_allocate(expr, registers);
 
-    emit_expr(expr, &mem_idx)
+    let Program {
+        mut instructions,
+        result,
+    } = emit_expr(expr, &mem_idx);
+
+    match result {
+        Value::Reference(3) => Program {
+            instructions,
+            result,
+        },
+        val => {
+            instructions.push(Instruction::Move(3, val));
+            Program {
+                instructions,
+                result: Value::Reference(3),
+            }
+        }
+    }
 }
 
 type BinInstruction = fn(Memory, Value) -> Instruction;
@@ -17,9 +34,16 @@ fn emit_expr(expr: &Expr, mem_idx: &[usize]) -> Program {
         Expr::RotLeft(a, b) => (Instruction::RotLeft as BinInstruction, a, b),
         Expr::RotRight(a, b) => (Instruction::RotRight as BinInstruction, a, b),
         Expr::Const(num) => {
-            return Program {
-                instructions: Vec::new(),
-                result: Value::Immediate(*num),
+            if *num > u32::MAX as u64 {
+                return Program {
+                    instructions: vec![Instruction::MoveAbs(mem_idx[0], *num)],
+                    result: Value::Reference(mem_idx[0]),
+                };
+            } else {
+                return Program {
+                    instructions: Vec::new(),
+                    result: Value::Immediate(*num as u32),
+                };
             }
         }
         Expr::HashState => {
@@ -82,7 +106,7 @@ fn register_allocate(expr: &Expr, registers: usize) -> Vec<usize> {
         .collect();
 
     let mut memory_idx = levels; // reuse the memory from levels
-    let mut reg_offset = 2; // the first two registers / memory slots are reserved for the hash state and the byte being hashed
+    let mut reg_offset = 3; // the first three registers / memory slots are reserved for the hash state, the byte being hashed and the trash register for rotations
     let mut mem_offset = reg_offset + registers;
 
     for i in 0..memory_idx.len() {

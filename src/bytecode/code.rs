@@ -12,11 +12,12 @@ pub type Memory = usize;
 #[derive(Copy, Clone, Debug)]
 pub enum Value {
     Reference(Memory),
-    Immediate(u64),
+    Immediate(u32),
 }
 
 #[derive(Copy, Clone, Debug)]
 pub enum Instruction {
+    MoveAbs(Memory, u64),
     Move(Memory, Value),
     Add(Memory, Value),
     Xor(Memory, Value),
@@ -32,15 +33,16 @@ impl Program {
 
         for instr in &self.instructions {
             match instr {
-                Instruction::Move(dst, Value::Immediate(val)) => mem[*dst] = *val,
+                Instruction::Move(dst, Value::Immediate(val)) => mem[*dst] = *val as u64,
                 Instruction::Move(dst, Value::Reference(src)) => mem[*dst] = mem[*src],
+                Instruction::MoveAbs(dst, val) => mem[*dst] = *val,
                 Instruction::Add(dst, Value::Immediate(val)) => {
-                    mem[*dst] = mem[*dst].wrapping_add(*val)
+                    mem[*dst] = mem[*dst].wrapping_add(*val as u64)
                 }
                 Instruction::Add(dst, Value::Reference(src)) => {
                     mem[*dst] = mem[*dst].wrapping_add(mem[*src])
                 }
-                Instruction::Xor(dst, Value::Immediate(val)) => mem[*dst] ^= *val,
+                Instruction::Xor(dst, Value::Immediate(val)) => mem[*dst] ^= *val as u64,
                 Instruction::Xor(dst, Value::Reference(src)) => mem[*dst] ^= mem[*src],
                 Instruction::RotLeft(dst, Value::Immediate(val)) => {
                     mem[*dst] = mem[*dst].rotate_left(*val as u32)
@@ -58,7 +60,7 @@ impl Program {
         }
 
         match self.result {
-            Value::Immediate(val) => val,
+            Value::Immediate(val) => val as u64,
             Value::Reference(idx) => mem[idx],
         }
     }
@@ -69,7 +71,8 @@ impl Program {
 
         for instr in &self.instructions {
             match instr {
-                Instruction::Move(dst, _)
+                Instruction::MoveAbs(dst, _)
+                | Instruction::Move(dst, _)
                 | Instruction::Add(dst, _)
                 | Instruction::Xor(dst, _)
                 | Instruction::RotLeft(dst, _)
@@ -108,6 +111,7 @@ impl fmt::Display for Instruction {
             Instruction::RotLeft(dst, src) => write!(f, "rotl %{} {}", dst, src),
             Instruction::RotRight(dst, src) => write!(f, "rotr %{} {}", dst, src),
             Instruction::Move(dst, src) => write!(f, "mov %{} {}", dst, src),
+            Instruction::MoveAbs(dst, val) => write!(f, "movabs %{} ${}", dst, val),
         }
     }
 }

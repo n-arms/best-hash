@@ -1,5 +1,6 @@
 use libc::{
-    c_void, mmap, memcpy, munmap, MAP_ANONYMOUS, MAP_FAILED, MAP_PRIVATE, PROT_EXEC, PROT_READ, PROT_WRITE, 
+    c_void, memcpy, mmap, munmap, MAP_ANONYMOUS, MAP_FAILED, MAP_PRIVATE, PROT_EXEC, PROT_READ,
+    PROT_WRITE,
 };
 use std::ptr;
 
@@ -29,13 +30,13 @@ unsafe fn alloc_buffer(size: usize) -> Option<*mut u8> {
 
 impl CodeVec {
     pub fn new(page_size: usize) -> Self {
-        let buffer = unsafe {alloc_buffer(page_size)}.expect("memory allocation failed");
+        let buffer = unsafe { alloc_buffer(page_size) }.expect("memory allocation failed");
 
         CodeVec {
             buffer,
             page_size,
             capacity: page_size,
-            length: 0
+            length: 0,
         }
     }
 
@@ -44,7 +45,11 @@ impl CodeVec {
             self.capacity *= 2;
             unsafe {
                 let buffer = alloc_buffer(self.capacity).expect("memory allocation failed");
-                memcpy(buffer as *mut c_void, self.buffer as *const c_void, self.length);
+                memcpy(
+                    buffer as *mut c_void,
+                    self.buffer as *const c_void,
+                    self.length,
+                );
                 munmap(self.buffer as *mut c_void, self.length);
                 self.buffer = buffer;
             }
@@ -57,9 +62,10 @@ impl CodeVec {
         self.length += 1;
     }
 
-    /// the memory returned from `as_ptr` should be suitable for direct execution
-    pub fn as_ptr(&self) -> *const u8 {
-        self.buffer
+    pub fn into_raw_parts(mut self) -> (*mut u8, usize, usize) {
+        let buffer = self.buffer;
+        self.buffer = ptr::null::<u8>() as *mut u8;
+        (buffer, self.length, self.capacity)
     }
 }
 

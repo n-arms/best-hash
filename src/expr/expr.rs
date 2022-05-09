@@ -110,6 +110,7 @@ impl Expr {
             Expr::Xor(a, b) | Expr::RotLeft(a, b) | Expr::RotRight(a, b) | Expr::Add(a, b) => {
                 a.len().max(b.len()) + 1
             }
+            Expr::Const(num) if *num > u32::MAX as u64 => 1,
             Expr::Const(_) | Expr::HashState | Expr::Byte => 0,
         }
     }
