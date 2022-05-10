@@ -63,7 +63,7 @@ impl Expr {
     }
 
     pub fn rand_with_depth(rng: &mut ThreadRng, depth: usize) -> Expr {
-        let seed = rng.gen::<u8>() % if depth >= 5 { 4 } else { 8 };
+        let seed = rng.gen::<u8>() % if depth >= 10 { 4 } else { 8 };
 
         match seed {
             0 | 1 => Expr::Const(rng.gen()),

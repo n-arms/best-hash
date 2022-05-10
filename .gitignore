@@ -13,6 +13,9 @@ Cargo.lock
 a.out
 test.c
 test.s
+temp.bin
+libtest.so
+log.txt
 
 # data from perf
 perf.data*

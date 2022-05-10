@@ -64,6 +64,12 @@ impl From<usize> for Memory {
     }
 }
 
+/// calculate the byte used to refer to the given index on the stack
+fn to_stack_idx(idx: usize) -> u8 {
+    let [byte, ..] = (-8 * idx as i8).to_le_bytes();
+    byte
+}
+
 impl Default for Linux_x86_64 {
     fn default() -> Linux_x86_64 {
         let mut buffer = CodeVec::new(_SC_PAGESIZE as usize);
@@ -99,14 +105,15 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0x8b);
                 self.buffer.push(0b01_000_100 + ((dst_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
-                self.buffer.push(((src_idx * 8) % 256) as u8);
+                self.buffer.push(to_stack_idx(src_idx));
             }
             (Memory::Stack(dst_idx), Memory::Register(src_reg)) => {
                 self.buffer.push(0x48 + ((src_reg.emit() >> 3) << 2));
                 self.buffer.push(0x89);
                 self.buffer.push(0b01_000_100 + ((src_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
-                self.buffer.push((dst_idx * 8) as u8);
+                //self.buffer.push((dst_idx * 8) as u8);
+                self.buffer.push(to_stack_idx(dst_idx));
             }
             (Memory::Stack(dst_idx), Memory::Stack(src_idx)) => {
                 self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(src_idx));
@@ -151,14 +158,14 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0x01);
                 self.buffer.push(0b01_000_100 + ((src_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
-                self.buffer.push((dst_idx * 8) as u8);
+                self.buffer.push(to_stack_idx(dst_idx));
             },
             (Memory::Register(dst_reg), Memory::Stack(src_idx)) => {
                 self.buffer.push(0x48 + ((dst_reg.emit() >> 3) << 2));
                 self.buffer.push(0x03);
                 self.buffer.push(0b01_000_100 + ((dst_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
-                self.buffer.push((src_idx * 8) as u8);
+                self.buffer.push(to_stack_idx(src_idx));
             }
             (Memory::Stack(dst_idx), Memory::Stack(src_idx)) => {
                 self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
@@ -189,7 +196,7 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0x81);
                 self.buffer.push(0x44);
                 self.buffer.push(0x24);
-                self.buffer.push((dst_idx * 8) as u8);
+                self.buffer.push(to_stack_idx(dst_idx));
 
                 for byte in src.to_le_bytes() {
                     self.buffer.push(byte);
@@ -212,14 +219,14 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0x31);
                 self.buffer.push(0b01_000_100 + ((src_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
-                self.buffer.push((dst_idx * 8) as u8);
+                self.buffer.push(to_stack_idx(dst_idx));
             }
             (Memory::Register(dst_reg), Memory::Stack(src_idx)) => {
                 self.buffer.push(0x48 + ((dst_reg.emit() >> 3) << 2));
                 self.buffer.push(0x33);
                 self.buffer.push(0b01_000_100 + ((dst_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
-                self.buffer.push((src_idx * 8) as u8);
+                self.buffer.push(to_stack_idx(src_idx));
             }
             (Memory::Stack(dst_idx), Memory::Stack(src_idx)) => {
                 self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
@@ -251,7 +258,7 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0x81);
                 self.buffer.push(0x74);
                 self.buffer.push(0x24);
-                self.buffer.push((dst_idx * 8) as u8);
+                self.buffer.push(to_stack_idx(dst_idx));
                 
                 for byte in src.to_le_bytes() {
                     self.buffer.push(byte);
@@ -308,7 +315,7 @@ impl Assembler for Linux_x86_64 {
             }
             _  => {
                 self.mov_mem(Memory::Register(Register::RAX), dst);
-                self.rotl_mem(Memory::Register(Register::RAX), src);
+                self.rotr_mem(Memory::Register(Register::RAX), src);
                 self.mov_mem(dst, Memory::Register(Register::RAX));
             }
         }
@@ -324,7 +331,7 @@ impl Assembler for Linux_x86_64 {
             },
             Memory::Stack(dst_idx) => {
                 self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
-                self.rotl_imm(Memory::Register(Register::RAX), src);
+                self.rotr_imm(Memory::Register(Register::RAX), src);
                 self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
             },
         }
