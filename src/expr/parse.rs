@@ -1,4 +1,4 @@
-use super::expr::{Tag, Expr};
+use super::expr::{Expr, Operator, Tag};
 use std::result;
 
 #[derive(Debug)]
@@ -61,8 +61,6 @@ fn parse_const(mut text: &[u8]) -> Result<(&[u8], Expr<Tag>)> {
 
     Ok((text, Expr::Tag(Tag::Const(num))))
 }
-
-type Operator = fn(Box<Expr<Tag>>, Box<Expr<Tag>>) -> Expr<Tag>;
 
 fn parse_binary_operator(mut text: &[u8]) -> Result<(&[u8], Expr<Tag>)> {
     not_empty(text)?;

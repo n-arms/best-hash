@@ -8,15 +8,17 @@ pub enum Expr<TAG> {
     Xor(Box<Expr<TAG>>, Box<Expr<TAG>>),
     RotLeft(Box<Expr<TAG>>, Box<Expr<TAG>>),
     RotRight(Box<Expr<TAG>>, Box<Expr<TAG>>),
-    Tag(TAG)
+    Tag(TAG),
 }
 
 #[derive(Clone)]
 pub enum Tag {
     Const(u64),
     HashState,
-    Byte
+    Byte,
 }
+
+pub type Operator = fn(Box<Expr<Tag>>, Box<Expr<Tag>>) -> Expr<Tag>;
 
 impl fmt::Display for Expr<Tag> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -39,7 +41,7 @@ impl fmt::Display for Expr<()> {
             Expr::Xor(a, b) => write!(f, "({} xor {})", a, b),
             Expr::RotLeft(a, b) => write!(f, "({} << {})", a, b),
             Expr::RotRight(a, b) => write!(f, "({} >> {})", a, b),
-            Expr::Tag(()) => write!(f, "tag")
+            Expr::Tag(()) => write!(f, "_"),
         }
     }
 }
@@ -113,22 +115,24 @@ impl Expr<Tag> {
         }
     }
 
-    pub fn len(&self) -> usize {
-        match self {
-            Expr::Xor(a, b) | Expr::RotLeft(a, b) | Expr::RotRight(a, b) | Expr::Add(a, b) => {
-                a.len() + b.len()
-            }
-            Expr::Tag(Tag::Const(_)) | Expr::Tag(Tag::HashState) | Expr::Tag(Tag::Byte) => 1,
-        }
-    }
-
     pub fn depth(&self) -> usize {
         match self {
             Expr::Xor(a, b) | Expr::RotLeft(a, b) | Expr::RotRight(a, b) | Expr::Add(a, b) => {
                 a.len().max(b.len()) + 1
             }
             Expr::Tag(Tag::Const(num)) if *num > u32::MAX as u64 => 1,
-            Expr::Tag(Tag::Const(_)) | Expr::Tag(Tag::HashState) | Expr::Tag(Tag::Byte) => 0,
+            Expr::Tag(_) => 0,
+        }
+    }
+}
+
+impl<TAG> Expr<TAG> {
+    pub fn len(&self) -> usize {
+        match self {
+            Expr::Xor(a, b) | Expr::RotLeft(a, b) | Expr::RotRight(a, b) | Expr::Add(a, b) => {
+                a.len() + b.len()
+            }
+            Expr::Tag(_) => 1,
         }
     }
 }

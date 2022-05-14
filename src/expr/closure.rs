@@ -1,4 +1,4 @@
-use super::expr::{Tag, Expr};
+use super::expr::{Expr, Tag};
 use crate::hash::Hash;
 use std::rc::Rc;
 

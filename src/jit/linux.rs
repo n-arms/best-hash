@@ -1,6 +1,6 @@
 use super::asm::Assembler;
 use super::code_vec::CodeVec;
-use libc::{c_void, _SC_PAGESIZE};
+use libc::{c_void, _SC_PAGESIZE, munmap};
 use std::mem::transmute;
 
 pub struct Linux_x86_64 {
@@ -18,12 +18,12 @@ pub enum Memory {
 pub enum Register {
     /// argument 2
     RDI,
-    /// argument 1 
+    /// argument 1
     RSI,
     /// has to be used for memory loads and stores
     RAX,
     /// has to be used for rotations
-    RCX, 
+    RCX,
     RDX,
     R8,
     R9,
@@ -160,7 +160,7 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0b01_000_100 + ((src_reg.emit() % 8) << 3));
                 self.buffer.push(0x24);
                 self.buffer.push(to_stack_idx(dst_idx));
-            },
+            }
             (Memory::Register(dst_reg), Memory::Stack(src_idx)) => {
                 self.buffer.push(0x48 + ((dst_reg.emit() >> 3) << 2));
                 self.buffer.push(0x03);
@@ -202,7 +202,7 @@ impl Assembler for Linux_x86_64 {
                 for byte in src.to_le_bytes() {
                     self.buffer.push(byte);
                 }
-            },
+            }
         }
     }
 
@@ -260,7 +260,7 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0x74);
                 self.buffer.push(0x24);
                 self.buffer.push(to_stack_idx(dst_idx));
-                
+
                 for byte in src.to_le_bytes() {
                     self.buffer.push(byte);
                 }
@@ -275,12 +275,11 @@ impl Assembler for Linux_x86_64 {
                 if src != Memory::Register(Register::RCX) {
                     self.mov_mem(Memory::Register(Register::RCX), src);
                 }
-                self.buffer
-                    .push(0x48 + (dst_reg.emit() >> 3));
+                self.buffer.push(0x48 + (dst_reg.emit() >> 3));
                 self.buffer.push(0xd3);
                 self.buffer.push(0b11_000_000 + (dst_reg.emit() % 8));
             }
-            _  => {
+            _ => {
                 self.mov_mem(Memory::Register(Register::RAX), dst);
                 self.rotl_mem(Memory::Register(Register::RAX), src);
                 self.mov_mem(dst, Memory::Register(Register::RAX));
@@ -295,7 +294,7 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0xc1);
                 self.buffer.push(0b11_000_000 + (dst_reg.emit() % 8));
                 self.buffer.push((src % u8::MAX as u32) as u8);
-            },
+            }
             Memory::Stack(dst_idx) => {
                 self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
                 self.rotl_imm(Memory::Register(Register::RAX), src);
@@ -314,7 +313,7 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0xd3);
                 self.buffer.push(0b11_001_000 + (dst_reg.emit() % 8));
             }
-            _  => {
+            _ => {
                 self.mov_mem(Memory::Register(Register::RAX), dst);
                 self.rotr_mem(Memory::Register(Register::RAX), src);
                 self.mov_mem(dst, Memory::Register(Register::RAX));
@@ -329,18 +328,20 @@ impl Assembler for Linux_x86_64 {
                 self.buffer.push(0xc1);
                 self.buffer.push(0b11_001_000 + (dst_reg.emit() % 8));
                 self.buffer.push((src % u8::MAX as u32) as u8);
-            },
+            }
             Memory::Stack(dst_idx) => {
                 self.mov_mem(Memory::Register(Register::RAX), Memory::Stack(dst_idx));
                 self.rotr_imm(Memory::Register(Register::RAX), src);
                 self.mov_mem(Memory::Stack(dst_idx), Memory::Register(Register::RAX));
-            },
+            }
         }
     }
 
-    fn finalize(mut self) -> (*const u8, usize) {
+    fn finalize(mut self) -> (*const u8, usize, Box<dyn Fn()>) {
         self.buffer.push(0xc3);
-        let (buffer, len, _) = self.buffer.into_raw_parts();
-        (buffer as *const u8, len)
+        let (buffer, len, cap) = self.buffer.into_raw_parts();
+        (buffer as *const u8, len, Box::new(move || unsafe {
+            munmap(buffer as *mut c_void, cap);
+        }))
     }
 }

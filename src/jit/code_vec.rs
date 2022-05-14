@@ -2,8 +2,8 @@ use libc::{
     c_void, memcpy, mmap, munmap, MAP_ANONYMOUS, MAP_FAILED, MAP_PRIVATE, PROT_EXEC, PROT_READ,
     PROT_WRITE,
 };
-use std::ptr;
 use std::fs::write;
+use std::ptr;
 
 pub struct CodeVec {
     buffer: *mut u8,
@@ -67,6 +67,10 @@ impl CodeVec {
         let buffer = self.buffer;
         self.buffer = ptr::null::<u8>() as *mut u8;
         (buffer, self.length, self.capacity)
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.capacity
     }
 }
 

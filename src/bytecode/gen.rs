@@ -1,5 +1,5 @@
 use super::code::*;
-use crate::expr::expr::{Tag, Expr};
+use crate::expr::expr::{Expr, Tag};
 use std::collections::HashSet;
 
 pub fn emit(expr: &Expr<Tag>, registers: usize) -> Program {

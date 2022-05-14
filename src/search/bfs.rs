@@ -1,28 +1,27 @@
 use crate::expr::expr::Expr;
-use std::collections::VecDeque;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 use std::fmt;
 
 pub struct Search {
     to_visit: VecDeque<Expr<()>>,
-    visited: HashSet<Expr<()>>
+    visited: HashSet<Expr<()>>,
 }
 
 impl Default for Search {
     fn default() -> Self {
         Search {
             to_visit: VecDeque::from([Expr::Tag(())]),
-            visited: HashSet::new()
+            visited: HashSet::new(),
         }
     }
 }
 
 fn closest_leaf<TAG>(expr: &Expr<TAG>) -> usize {
     match expr {
-        Expr::Add(a, b) |
-        Expr::Xor(a, b) |
-        Expr::RotLeft(a, b) |
-        Expr::RotRight(a, b) => closest_leaf(&a).min(closest_leaf(&b)) + 1,
+        Expr::Add(a, b) | Expr::Xor(a, b) | Expr::RotLeft(a, b) | Expr::RotRight(a, b) => {
+            closest_leaf(&a).min(closest_leaf(&b)) + 1
+        }
         Expr::Tag(_) => 0,
     }
 }
@@ -31,10 +30,7 @@ fn closest_leaf<TAG>(expr: &Expr<TAG>) -> usize {
 /// the form of a u128 where 0 means left and 1 means right
 fn leaf_path(expr: &Expr<()>) -> (u8, u128) {
     match expr {
-        Expr::Add(a, b) |
-        Expr::Xor(a, b) |
-        Expr::RotLeft(a, b) |
-        Expr::RotRight(a, b) => {
+        Expr::Add(a, b) | Expr::Xor(a, b) | Expr::RotLeft(a, b) | Expr::RotRight(a, b) => {
             let (a_len, a_path) = leaf_path(&a);
             let (b_len, b_path) = leaf_path(&b);
 
@@ -52,7 +48,13 @@ fn leafify(f: fn(Box<Expr<()>>, Box<Expr<()>>) -> Expr<()>) -> Expr<()> {
     f(Box::new(Expr::Tag(())), Box::new(Expr::Tag(())))
 }
 
-fn binary_permutations(a: &Expr<()>, b: &Expr<()>, depth: u8, path: u128, f: fn(Box<Expr<()>>, Box<Expr<()>>) -> Expr<()>) -> Vec<Expr<()>> {
+fn binary_permutations(
+    a: &Expr<()>,
+    b: &Expr<()>,
+    depth: u8,
+    path: u128,
+    f: fn(Box<Expr<()>>, Box<Expr<()>>) -> Expr<()>,
+) -> Vec<Expr<()>> {
     let mut perms = Vec::new();
     if path & 1 == 0 {
         let a_perms = permutations(&a, depth - 1, path >> 1);
@@ -75,7 +77,7 @@ fn permutations(expr: &Expr<()>, depth: u8, path: u128) -> Vec<Expr<()>> {
                 leafify(Expr::Add),
                 leafify(Expr::Xor),
                 leafify(Expr::RotLeft),
-                leafify(Expr::RotRight)
+                leafify(Expr::RotRight),
             ]
         } else {
             vec![expr.clone()]
@@ -86,7 +88,7 @@ fn permutations(expr: &Expr<()>, depth: u8, path: u128) -> Vec<Expr<()>> {
             Expr::Xor(a, b) => binary_permutations(a, b, depth, path, Expr::Xor),
             Expr::RotLeft(a, b) => binary_permutations(a, b, depth, path, Expr::RotLeft),
             Expr::RotRight(a, b) => binary_permutations(a, b, depth, path, Expr::RotRight),
-            Expr::Tag(()) => vec![Expr::Tag(())]
+            Expr::Tag(()) => vec![Expr::Tag(())],
         }
     }
 }

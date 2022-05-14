@@ -1,29 +1,58 @@
+use crate::bytecode::code::{Instruction, Program, Value};
 use crate::jit::asm::Assembler;
-use crate::bytecode::code::{Program, Instruction, Value};
+use std::fs::write;
+use std::io;
 use std::marker::PhantomData;
 use std::mem::transmute;
-use std::fs::write;
 use std::process::*;
-use std::io;
 use std::slice;
+use crate::hash::Hash;
 
 pub struct Jit<A: Assembler> {
-    _marker: PhantomData<A>
+    _marker: PhantomData<A>,
 }
 
-impl<A> Jit<A> 
+pub struct CodeGuard {
+    func: fn(u64, u64) -> u64,
+    finalizer: Box<dyn Fn()>
+}
+
+impl CodeGuard {
+    fn call(&self, state: u64, byte: u64) -> u64 {
+        (self.func)(state, byte)
+    }
+}
+
+impl Drop for CodeGuard {
+    fn drop(&mut self) {
+        self.finalizer.as_ref()()
+    }
+}
+
+impl Hash for CodeGuard {
+    fn hash_bytes(&self, init: u64, bytes: &[u8]) -> u64 {
+        let mut hash = init;
+        for byte in bytes {
+            hash = self.call(hash, *byte as u64);
+        }
+        hash
+    }
+}
+
+impl<A> Jit<A>
 where
     A: Assembler + Default,
-    A::Memory: From<usize>
+    A::Memory: From<usize>,
 {
-    pub fn jit_prog(prog: &Program) -> fn(u64, u64) -> u64 {
+    pub fn jit_prog(prog: &Program) -> CodeGuard {
         let mut asm = A::default();
         Jit::asm_prog(&mut asm, prog);
 
-        let (buffer, _) = asm.finalize();
+        let (buffer, _, finalizer) = asm.finalize();
 
-        unsafe {
-            transmute(buffer)
+        CodeGuard {
+            func: unsafe {transmute(buffer)},
+            finalizer
         }
     }
 
@@ -31,11 +60,15 @@ where
         let mut asm = A::default();
         Jit::asm_prog(&mut asm, prog);
 
-        let (buffer, len) = asm.finalize();
-        
-        let slice = unsafe {slice::from_raw_parts(buffer, len) };
+        let (buffer, len, fin) = asm.finalize();
+
+        let slice = unsafe { slice::from_raw_parts(buffer, len) };
 
         write("temp.bin", slice)?;
+
+        drop(slice);
+        drop(buffer);
+        fin();
 
         let child = Command::new("objdump")
             .arg("-D")
@@ -60,11 +93,15 @@ where
                     asm.mov_mem(A::Memory::from(dst), A::Memory::from(src))
                 }
                 Instruction::MoveAbs(dst, num) => asm.mov_imm(A::Memory::from(dst), num),
-                Instruction::Add(dst, Value::Immediate(num)) => asm.add_imm(A::Memory::from(dst), num),
+                Instruction::Add(dst, Value::Immediate(num)) => {
+                    asm.add_imm(A::Memory::from(dst), num)
+                }
                 Instruction::Add(dst, Value::Reference(src)) => {
                     asm.add_mem(A::Memory::from(dst), A::Memory::from(src))
                 }
-                Instruction::Xor(dst, Value::Immediate(num)) => asm.xor_imm(A::Memory::from(dst), num),
+                Instruction::Xor(dst, Value::Immediate(num)) => {
+                    asm.xor_imm(A::Memory::from(dst), num)
+                }
                 Instruction::Xor(dst, Value::Reference(src)) => {
                     asm.xor_mem(A::Memory::from(dst), A::Memory::from(src))
                 }

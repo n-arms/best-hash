@@ -16,5 +16,5 @@ pub trait Assembler {
     fn rotr_mem(&mut self, dst: Self::Memory, src: Self::Memory);
     fn rotr_imm(&mut self, dst: Self::Memory, src: u32);
 
-    fn finalize(self) -> (*const u8, usize);
+    fn finalize(self) -> (*const u8, usize, Box<dyn Fn()>);
 }

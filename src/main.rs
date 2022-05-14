@@ -5,26 +5,26 @@
     clippy::perf,
     clippy::pedantic
 )]
-
 mod bytecode;
-mod jit_prog;
 mod expr;
 mod hash;
 mod jit;
+mod jit_prog;
 mod search;
 
 use bytecode::code::{Instruction, Program, Value};
 use bytecode::gen::emit;
-use expr::expr::{Tag, Expr};
-use expr::parse::parse;
 use expr::closure::*;
+use expr::expr::{Expr, Tag};
+use expr::parse::parse;
+use hash::{score_hasher, Hash};
 use jit::{asm::*, linux::*};
-use rand::prelude::*;
-use std::mem::transmute;
 use jit_prog::Jit;
-use std::time::{Instant, Duration};
-use hash::Hash;
+use rand::prelude::*;
 use search::bfs::Search;
+use search::tag::Tagger;
+use std::mem::transmute;
+use std::time::{Duration, Instant};
 
 fn format_micros(time: f64) -> String {
     let micros = time % 1000.;
@@ -36,11 +36,54 @@ fn format_micros(time: f64) -> String {
 
 fn main() {
     // calling search.next() n times, search.to_visit will contain 3n + 1 elements
-    let mut search = Search::default();
+    let search = Search::default();
+    let tagger = Tagger::default();
+    let mut rng = thread_rng();
+    let mut scored_exprs: Vec<_> = search
+        .take(100000)
+        .enumerate()
+        .map(|(i, expr)| {
+            if i % 100 == 0 {
+                println!("{}", i);
+            }
+            let mut score = 0.;
+            for _ in 0..100 {
+                let tagged = tagger.annotate(&expr);
+                let prog = emit(&tagged, 6);
+                let jit = Jit::<Linux_x86_64>::jit_prog(&prog);
+                score += score_hasher(jit, tagged.len(), 0, 10, 3, 50, 3, &mut rng);
+            }
 
-    for _ in 0..100 {
-        println!("element {}, search len is now {}\n", search.next().unwrap(), search.len());
+            (score, expr)
+        })
+        .collect();
+
+    scored_exprs.sort_by_key(|(score, _)| (score * 100f64) as u128);
+
+    for (score, expr) in scored_exprs.iter().take(5) {
+        println!("{}\n\thas score {}\n", expr, score);
     }
+
+    for (score, expr) in scored_exprs.iter().skip(scored_exprs.len() - 5) {
+        println!("{}\n\thas score {}\n", expr, score);
+    }
+
+    let len_total = scored_exprs
+        .iter()
+        .map(|(_, expr)| expr.len() as f64)
+        .fold(0f64, |acc, len| acc + len);
+    let len_bad = scored_exprs
+        .iter()
+        .take(5)
+        .map(|(_, expr)| expr.len() as f64)
+        .fold(0f64, |acc, len| acc + len);
+    let len_good = scored_exprs
+        .iter()
+        .skip(scored_exprs.len() - 5)
+        .map(|(_, expr)| expr.len() as f64)
+        .fold(0f64, |acc, len| acc + len);
+
+    println!("the average length of an expression is {}, the average length of a bad expression is {}, the average length of a good expression is {}", len_total / (scored_exprs.len() as f64), len_bad / 5f64, len_good / 5f64);
 }
 
 /*
