@@ -57,7 +57,7 @@ impl CodeVec {
         }
 
         unsafe {
-            *self.buffer.offset(self.length as isize) = byte;
+            *self.buffer.add(self.length) = byte;
         }
 
         self.length += 1;
@@ -74,7 +74,7 @@ impl Drop for CodeVec {
     fn drop(&mut self) {
         unsafe {
             let buf = self.buffer as *const c_void;
-            if buf != ptr::null() {
+            if !buf.is_null() {
                 munmap(buf as *mut c_void, self.capacity);
             }
         }

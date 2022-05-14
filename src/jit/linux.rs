@@ -13,6 +13,7 @@ pub enum Memory {
     Stack(usize),
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Register {
     /// argument 2

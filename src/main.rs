@@ -1,12 +1,21 @@
+#[warn(
+    clippy::correctness,
+    clippy::suspicious,
+    clippy::complexity,
+    clippy::perf,
+    clippy::pedantic
+)]
+
 mod bytecode;
 mod jit_prog;
 mod expr;
 mod hash;
 mod jit;
+mod search;
 
 use bytecode::code::{Instruction, Program, Value};
 use bytecode::gen::emit;
-use expr::expr::Expr;
+use expr::expr::{Tag, Expr};
 use expr::parse::parse;
 use expr::closure::*;
 use jit::{asm::*, linux::*};
@@ -15,6 +24,7 @@ use std::mem::transmute;
 use jit_prog::Jit;
 use std::time::{Instant, Duration};
 use hash::Hash;
+use search::bfs::Search;
 
 fn format_micros(time: f64) -> String {
     let micros = time % 1000.;
@@ -24,6 +34,16 @@ fn format_micros(time: f64) -> String {
     format!("{:.0}s, {:.0}ms, {:.0}us", seconds, millis, micros)
 }
 
+fn main() {
+    // calling search.next() n times, search.to_visit will contain 3n + 1 elements
+    let mut search = Search::default();
+
+    for _ in 0..100 {
+        println!("element {}, search len is now {}\n", search.next().unwrap(), search.len());
+    }
+}
+
+/*
 fn main() {
     print!("\n\n\n\n\n\n");
     let mut rng = thread_rng();
@@ -78,6 +98,7 @@ fn main() {
 
     println!();
 }
+*/
 
 #[cfg(test)]
 mod test {

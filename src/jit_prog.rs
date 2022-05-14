@@ -16,9 +16,9 @@ where
     A: Assembler + Default,
     A::Memory: From<usize>
 {
-    pub fn jit_prog(p: &Program) -> fn(u64, u64) -> u64 {
+    pub fn jit_prog(prog: &Program) -> fn(u64, u64) -> u64 {
         let mut asm = A::default();
-        Jit::asm_prog(&mut asm, &p);
+        Jit::asm_prog(&mut asm, prog);
 
         let (buffer, _) = asm.finalize();
 
@@ -27,9 +27,9 @@ where
         }
     }
 
-    pub fn objdump_prog(p: &Program) -> io::Result<String> {
+    pub fn objdump_prog(prog: &Program) -> io::Result<String> {
         let mut asm = A::default();
-        Jit::asm_prog(&mut asm, &p);
+        Jit::asm_prog(&mut asm, prog);
 
         let (buffer, len) = asm.finalize();
         

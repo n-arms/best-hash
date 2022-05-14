@@ -1,4 +1,4 @@
-use super::expr::Expr;
+use super::expr::{Tag, Expr};
 use std::result;
 
 #[derive(Debug)]
@@ -14,7 +14,7 @@ pub enum Error {
 
 pub type Result<T> = result::Result<T, Error>;
 
-pub fn parse(text: &str) -> Result<Expr> {
+pub fn parse(text: &str) -> Result<Expr<Tag>> {
     let mut bytes = Vec::new();
     for byte in text.as_bytes() {
         if !byte.is_ascii_whitespace() {
@@ -30,22 +30,22 @@ pub fn parse(text: &str) -> Result<Expr> {
     }
 }
 
-fn parse_expr(text: &[u8]) -> Result<(&[u8], Expr)> {
+fn parse_expr(text: &[u8]) -> Result<(&[u8], Expr<Tag>)> {
     parse_binary_operator(text)
         .or_else(|_| parse_const(text))
         .or_else(|_| parse_ref(text))
 }
 
-fn parse_ref(text: &[u8]) -> Result<(&[u8], Expr)> {
+fn parse_ref(text: &[u8]) -> Result<(&[u8], Expr<Tag>)> {
     not_empty(text)?;
     match text {
-        [b'b', b'y', b't', b'e', text @ ..] => Ok((text, Expr::Byte)),
-        [b's', b't', b'a', b't', b'e', text @ ..] => Ok((text, Expr::HashState)),
+        [b'b', b'y', b't', b'e', text @ ..] => Ok((text, Expr::Tag(Tag::Byte))),
+        [b's', b't', b'a', b't', b'e', text @ ..] => Ok((text, Expr::Tag(Tag::HashState))),
         _ => Err(Error::ExpectedBytesOrState(text[0])),
     }
 }
 
-fn parse_const(mut text: &[u8]) -> Result<(&[u8], Expr)> {
+fn parse_const(mut text: &[u8]) -> Result<(&[u8], Expr<Tag>)> {
     not_empty(text)?;
 
     if !text[0].is_ascii_digit() {
@@ -59,12 +59,12 @@ fn parse_const(mut text: &[u8]) -> Result<(&[u8], Expr)> {
         text = &text[1..];
     }
 
-    Ok((text, Expr::Const(num)))
+    Ok((text, Expr::Tag(Tag::Const(num))))
 }
 
-type Operator = fn(Box<Expr>, Box<Expr>) -> Expr;
+type Operator = fn(Box<Expr<Tag>>, Box<Expr<Tag>>) -> Expr<Tag>;
 
-fn parse_binary_operator(mut text: &[u8]) -> Result<(&[u8], Expr)> {
+fn parse_binary_operator(mut text: &[u8]) -> Result<(&[u8], Expr<Tag>)> {
     not_empty(text)?;
 
     if text[0] != b'(' {

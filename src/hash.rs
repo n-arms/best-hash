@@ -30,6 +30,7 @@ impl Hash for fn(u64, u64) -> u64 {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn score_hasher<H: Hash>(
     hasher: H,
     len: usize,

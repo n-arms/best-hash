@@ -1,4 +1,4 @@
-use super::expr::Expr;
+use super::expr::{Tag, Expr};
 use crate::hash::Hash;
 use std::rc::Rc;
 
@@ -6,8 +6,8 @@ use std::rc::Rc;
 pub struct Hasher<'a> {
     closure: Rc<dyn Fn(u64, u8) -> u64 + 'a>,
 }
-impl<'a> From<&'a Expr> for Hasher<'a> {
-    fn from(expr: &'a Expr) -> Self {
+impl<'a> From<&'a Expr<Tag>> for Hasher<'a> {
+    fn from(expr: &'a Expr<Tag>) -> Self {
         match expr {
             Expr::Add(a, b) => {
                 let ac = Hasher::from(a.as_ref());
@@ -51,13 +51,13 @@ impl<'a> From<&'a Expr> for Hasher<'a> {
                     }),
                 }
             }
-            Expr::Const(num) => Hasher {
+            Expr::Tag(Tag::Const(num)) => Hasher {
                 closure: Rc::new(|_, _| *num),
             },
-            Expr::HashState => Hasher {
+            Expr::Tag(Tag::HashState) => Hasher {
                 closure: Rc::new(|state, _| state),
             },
-            Expr::Byte => Hasher {
+            Expr::Tag(Tag::Byte) => Hasher {
                 closure: Rc::new(|_, byte| byte as u64),
             },
         }
