@@ -18,7 +18,7 @@ use expr::closure::*;
 use expr::expr::{Expr, Tag};
 use expr::parse::parse;
 use hash::{score_hasher, Hash};
-use jit::{asm::*, linux::*};
+use jit::{asm::*, code_vec::CodeVec, linux::*};
 use jit_prog::Jit;
 use rand::prelude::*;
 use search::bfs::Search;
@@ -39,25 +39,30 @@ fn main() {
     let search = Search::default();
     let tagger = Tagger::default();
     let mut rng = thread_rng();
-    let mut scored_exprs: Vec<_> = search
-        .take(100000)
-        .enumerate()
-        .map(|(i, expr)| {
-            if i % 100 == 0 {
-                println!("{}", i);
-            }
-            let mut score = 0.;
-            for _ in 0..100 {
-                let tagged = tagger.annotate(&expr);
-                let prog = emit(&tagged, 6);
-                let jit = Jit::<Linux_x86_64>::jit_prog(&prog);
-                score += score_hasher(jit, tagged.len(), 0, 10, 3, 50, 3, &mut rng);
-            }
+    let mut code = CodeVec::default();
 
-            (score, expr)
-        })
-        .collect();
+    let mut scored_exprs = Vec::new();
 
+    for (i, expr) in search.take(100_000).enumerate() {
+        if i % 100 == 0 {
+            println!("{}", i);
+        }
+        let mut score = 0.;
+        for _ in 0..100 {
+            let tagged = tagger.annotate(&expr);
+            let prog = emit(&tagged, 6);
+
+            let mut asm = Linux_x86_64::new(code);
+            Jit::asm_prog(&mut asm, &prog);
+            let (buffer, _, cap) = asm.finalize_with_cap();
+            let jit: fn(u64, u64) -> u64 = unsafe { transmute(buffer) };
+
+            score += score_hasher(jit, tagged.len(), 0, 10, 3, 50, 3, &mut rng);
+            code = unsafe { CodeVec::from_raw_parts(buffer as *mut u8, 0, cap) };
+        }
+
+        scored_exprs.push((score, expr));
+    }
     scored_exprs.sort_by_key(|(score, _)| (score * 100f64) as u128);
 
     for (score, expr) in scored_exprs.iter().take(5) {

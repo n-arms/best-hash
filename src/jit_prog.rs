@@ -1,4 +1,5 @@
 use crate::bytecode::code::{Instruction, Program, Value};
+use crate::hash::Hash;
 use crate::jit::asm::Assembler;
 use std::fs::write;
 use std::io;
@@ -6,7 +7,6 @@ use std::marker::PhantomData;
 use std::mem::transmute;
 use std::process::*;
 use std::slice;
-use crate::hash::Hash;
 
 pub struct Jit<A: Assembler> {
     _marker: PhantomData<A>,
@@ -14,7 +14,7 @@ pub struct Jit<A: Assembler> {
 
 pub struct CodeGuard {
     func: fn(u64, u64) -> u64,
-    finalizer: Box<dyn Fn()>
+    finalizer: Box<dyn Fn()>,
 }
 
 impl CodeGuard {
@@ -51,8 +51,8 @@ where
         let (buffer, _, finalizer) = asm.finalize();
 
         CodeGuard {
-            func: unsafe {transmute(buffer)},
-            finalizer
+            func: unsafe { transmute(buffer) },
+            finalizer,
         }
     }
 
@@ -83,7 +83,7 @@ where
         Ok(String::from_utf8_lossy(&child.stdout).to_string())
     }
 
-    fn asm_prog(asm: &mut A, prog: &Program) {
+    pub fn asm_prog(asm: &mut A, prog: &Program) {
         for instr in prog.instructions.iter().copied() {
             match instr {
                 Instruction::Move(dst, Value::Immediate(num)) => {

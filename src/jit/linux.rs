@@ -1,6 +1,6 @@
 use super::asm::Assembler;
 use super::code_vec::CodeVec;
-use libc::{c_void, _SC_PAGESIZE, munmap};
+use libc::{c_void, munmap, _SC_PAGESIZE};
 use std::mem::transmute;
 
 pub struct Linux_x86_64 {
@@ -73,7 +73,12 @@ fn to_stack_idx(idx: usize) -> u8 {
 
 impl Default for Linux_x86_64 {
     fn default() -> Linux_x86_64 {
-        let mut buffer = CodeVec::new(_SC_PAGESIZE as usize);
+        Linux_x86_64::new(CodeVec::new(_SC_PAGESIZE as usize))
+    }
+}
+
+impl Linux_x86_64 {
+    pub fn new(mut buffer: CodeVec) -> Linux_x86_64 {
         buffer.push(0xf3);
         buffer.push(0x0f);
         buffer.push(0x1e);
@@ -340,8 +345,20 @@ impl Assembler for Linux_x86_64 {
     fn finalize(mut self) -> (*const u8, usize, Box<dyn Fn()>) {
         self.buffer.push(0xc3);
         let (buffer, len, cap) = self.buffer.into_raw_parts();
-        (buffer as *const u8, len, Box::new(move || unsafe {
-            munmap(buffer as *mut c_void, cap);
-        }))
+        (
+            buffer as *const u8,
+            len,
+            Box::new(move || unsafe {
+                munmap(buffer as *mut c_void, cap);
+            }),
+        )
+    }
+}
+
+impl Linux_x86_64 {
+    pub fn finalize_with_cap(mut self) -> (*const u8, usize, usize) {
+        self.buffer.push(0xc3);
+        let (buffer, len, cap) = self.buffer.into_raw_parts();
+        (buffer as *const u8, len, cap)
     }
 }

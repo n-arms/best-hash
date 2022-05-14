@@ -1,6 +1,6 @@
 use libc::{
     c_void, memcpy, mmap, munmap, MAP_ANONYMOUS, MAP_FAILED, MAP_PRIVATE, PROT_EXEC, PROT_READ,
-    PROT_WRITE,
+    PROT_WRITE, _SC_PAGESIZE,
 };
 use std::fs::write;
 use std::ptr;
@@ -9,7 +9,12 @@ pub struct CodeVec {
     buffer: *mut u8,
     length: usize,
     capacity: usize,
-    page_size: usize,
+}
+
+impl Default for CodeVec {
+    fn default() -> Self {
+        CodeVec::new(_SC_PAGESIZE as usize)
+    }
 }
 
 unsafe fn alloc_buffer(size: usize) -> Option<*mut u8> {
@@ -35,7 +40,6 @@ impl CodeVec {
 
         CodeVec {
             buffer,
-            page_size,
             capacity: page_size,
             length: 0,
         }
@@ -67,6 +71,14 @@ impl CodeVec {
         let buffer = self.buffer;
         self.buffer = ptr::null::<u8>() as *mut u8;
         (buffer, self.length, self.capacity)
+    }
+
+    pub unsafe fn from_raw_parts(buffer: *mut u8, length: usize, capacity: usize) -> Self {
+        CodeVec {
+            buffer,
+            length,
+            capacity,
+        }
     }
 
     pub fn capacity(&self) -> usize {
